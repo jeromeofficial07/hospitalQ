@@ -27,7 +27,9 @@ def login_required(f):
 @queue_bp.route('/dashboard')
 @login_required
 def dashboard():
-    queues = Queue.query.filter_by(status='active').all()
+    # Show ALL queues not just active
+    # So all 8 departments always show
+    queues = Queue.query.order_by(Queue.id).all()
 
     user_tokens = (
         Token.query

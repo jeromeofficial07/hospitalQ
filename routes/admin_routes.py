@@ -138,29 +138,24 @@ def close_queue(queue_id):
 @admin_bp.route('/queue-list')
 @admin_required
 def queue_list():
-    # Always fresh from DB
-    db.session.expire_all()
     queues = Queue.query.all()
     data   = []
     for q in queues:
         waiting = Token.query.filter_by(
-            queue_id=q.id,
-            status='waiting'
+            queue_id=q.id, status='waiting'
         ).count()
         serving = Token.query.filter_by(
-            queue_id=q.id,
-            status='serving'
+            queue_id=q.id, status='serving'
         ).first()
         data.append({
             'id':              q.id,
             'department_name': q.department_name,
             'status':          q.status,
             'waiting_count':   waiting,
-            'serving_token':   (
-                serving.token_number if serving else None
-            )
+            'serving_token':   serving.token_number if serving else None
         })
     return jsonify(data)
+
 
 @admin_bp.route('/token-list')
 @admin_required

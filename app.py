@@ -18,10 +18,20 @@ def create_app():
 
     db.init_app(app)
 
+    # Auto detect environment
+    # Production (Render) = gevent
+    # Local development   = threading
+    is_production = os.environ.get('FLASK_ENV') == 'production'
+
+    if is_production:
+        async_mode = 'gevent'
+    else:
+        async_mode = 'threading'
+
     socketio.init_app(
         app,
         cors_allowed_origins = '*',
-        async_mode           = 'gevent',
+        async_mode           = async_mode,
         ping_timeout         = 60,
         ping_interval        = 25
     )
@@ -141,5 +151,5 @@ if __name__ == '__main__':
         app,
         host  = '0.0.0.0',
         port  = port,
-        debug = False
+        debug = True
     )

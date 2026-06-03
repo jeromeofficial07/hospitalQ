@@ -18,22 +18,24 @@ def create_app():
 
     db.init_app(app)
 
-    # Auto detect environment
-    # Production (Render) = gevent
-    # Local development   = threading
-    is_production = os.environ.get('FLASK_ENV') == 'production'
+    # Always use gevent on Render
+    # threading locally
+    is_production = os.environ.get(
+        'FLASK_ENV', 'development'
+    ) == 'production'
 
-    if is_production:
-        async_mode = 'gevent'
-    else:
-        async_mode = 'threading'
+    async_mode = 'gevent' if is_production else 'threading'
+
+    print('Starting with async_mode: ' + async_mode)
 
     socketio.init_app(
         app,
         cors_allowed_origins = '*',
         async_mode           = async_mode,
         ping_timeout         = 60,
-        ping_interval        = 25
+        ping_interval        = 25,
+        logger               = True,
+        engineio_logger      = True
     )
 
     from routes.auth_routes  import auth_bp

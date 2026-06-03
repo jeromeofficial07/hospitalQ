@@ -1,783 +1,592 @@
-<!DOCTYPE html>
-<html lang="en">
+<script>
+    /* ═══════════════════════════════════════════════
+       ADMIN DASHBOARD — FULL AUTO UPDATE
+       Fixed: pause state preserved on refresh
+    ═══════════════════════════════════════════════ */
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard — QueueFlow</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
+    var socket = io();
 
-<body class="app-page">
-    <canvas id="bg-canvas"></canvas>
+    socket.on('connect', function() {
+        showToast('🔌', 'Connected',
+            'Live updates active', '#e11d48');
+    });
 
-    <div class="sidebar" id="sidebar">
-        <div class="logo">
-            <div class="logo-icon">⚡</div>
-            <div>
-                <div class="logo-text">QueueFlow</div>
-                <div class="logo-sub">Admin Panel</div>
-            </div>
-        </div>
-        <span class="nav-label">Management</span>
-        <div class="nav-item active" onclick="switchNav(this,'dashboard')">
-            <span>⬡</span><span>Dashboard</span>
-        </div>
-        <div class="nav-item" onclick="switchNav(this,'analytics')">
-            <span>📊</span><span>Analytics</span>
-        </div>
-        <div class="nav-item" onclick="switchNav(this,'tokens')">
-            <span>🎫</span><span>All Tokens</span>
-        </div>
-        <div class="nav-item" onclick="switchNav(this,'depts')">
-            <span>🏢</span><span>Departments</span>
-        </div>
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <div class="avatar" style="background:linear-gradient(135deg,#e11d48,#be123c)">
-                    A
-                </div>
-                <div>
-                    <div class="user-name">Administrator</div>
-                    <div class="user-role">Super Admin</div>
-                </div>
-            </div>
-            <a href="/logout" class="btn btn-ghost" style="width:100%;justify-content:center">
-      ↩ Logout
-    </a>
-        </div>
-    </div>
+    socket.on('disconnect', function() {
+        showToast('⚠️', 'Disconnected',
+            'Reconnecting...', '#d97706');
+    });
 
-    <main class="main-content">
+    socket.on('queue_status_changed', function(data) {
+        showToast(
+            data.status === 'closed' ? '🔴' :
+            data.status === 'paused' ? '⏸' : '▶',
+            'Queue ' + data.status,
+            data.dept + ' is now ' + data.status,
+            data.status === 'closed' ? '#e11d48' :
+            data.status === 'paused' ? '#d97706' : '#059669'
+        );
+        refreshAll();
+    });
 
-        <div class="page-header">
-            <div>
-                <div class="page-title">Admin Dashboard</div>
-                <div class="page-sub" id="last-updated">
-                    Real-time queue control centre
-                </div>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-ghost" onclick="exportReport()">
-        ⬇ Export
-      </button>
-                <button class="btn btn-primary" onclick="forceRefresh()">
-        🔄 Refresh
-      </button>
-            </div>
-        </div>
+    socket.on('next_token', function(data) {
+        showToast('📢', 'Token Called',
+            'Now serving ' + data.token_number, '#e11d48');
+        refreshAll();
+    });
 
-        {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for cat, msg in messages %}
-        <div class="flash flash-{{ cat }}">{{ msg }}</div>
-        {% endfor %} {% endif %} {% endwith %}
+    socket.on('queue_update', function() {
+        refreshStats();
+        refreshTokenTable();
+    });
 
-        <!-- STAT CARDS — auto updated by JS -->
-        <div class="stats-grid" id="section-dashboard">
-            <div class="stat-card card-indigo">
-                <div class="stat-icon icon-indigo">🎫</div>
-                <div class="stat-val val-indigo" id="stat-total">{{ total }}</div>
-                <div class="stat-label">Total Tokens</div>
-                <div class="stat-delta up">↑ All time</div>
-            </div>
-            <div class="stat-card card-amber">
-                <div class="stat-icon icon-amber">⏳</div>
-                <div class="stat-val val-amber" id="stat-waiting">{{ waiting }}</div>
-                <div class="stat-label">Currently Waiting</div>
-                <div class="stat-delta up" id="waiting-delta">↑ Live count</div>
-            </div>
-            <div class="stat-card card-emerald">
-                <div class="stat-icon icon-emerald">✅</div>
-                <div class="stat-val val-emerald" id="stat-completed">{{ completed }}</div>
-                <div class="stat-label">Completed</div>
-                <div class="stat-delta up">↑ Great service</div>
-            </div>
-            <div class="stat-card card-rose">
-                <div class="stat-icon icon-rose">✕</div>
-                <div class="stat-val val-rose" id="stat-cancelled">{{ cancelled }}</div>
-                <div class="stat-label">Cancelled</div>
-                <div class="stat-delta down">↓ Monitor this</div>
-            </div>
-        </div>
+    /* ── Update single dept card status instantly ── */
+    function updateDeptCard(queueId, newStatus) {
+        var card = document.getElementById('dcc-' + queueId);
+        if (!card) return;
 
-        <!-- DEPT CONTROLS — fully auto-rendered by JS -->
-        <div class="section-card" id="section-depts">
-            <div class="sc-title">🏢 Department Queue Controls</div>
-            <div class="dept-controls-grid" id="dept-controls-grid">
-                <!-- Rendered by renderDeptCards() -->
-                <div class="loading-placeholder">
-                    Loading departments...
-                </div>
-            </div>
-        </div>
-
-        <!-- LIVE TOKEN TABLE — auto-rendered by JS -->
-        <div class="section-card" id="section-tokens">
-            <div class="panel-header">
-                <div class="sc-title">🎫 Live Queue Tokens</div>
-                <div class="search-bar" id="search-bar-wrap">
-                    🔍
-                    <input type="text" id="token-search" placeholder="Filter tokens..." style="background:transparent;border:none;
-                      outline:none;color:var(--text);
-                      font-size:13px;width:160px;
-                      font-family:inherit;">
-                </div>
-            </div>
-            <table class="queue-table" id="admin-token-table">
-                <thead>
-                    <tr>
-                        <th>Token</th>
-                        <th>User</th>
-                        <th>Department</th>
-                        <th>Status</th>
-                        <th>Time</th>
-                        <th>Est. Wait</th>
-                    </tr>
-                </thead>
-                <tbody id="admin-tbody">
-                    <tr>
-                        <td colspan="6" class="empty-row">
-                            Loading tokens...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- ANALYTICS -->
-        <div class="section-card" id="section-analytics">
-            <div class="sc-title">📊 Department Analytics</div>
-            <div class="analytics-grid">
-                <div class="chart-container">
-                    <canvas id="deptChart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <canvas id="statusChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- TICKER -->
-    <div class="ticker-bar">
-        <div class="ticker-label">LIVE</div>
-        <div class="ticker-track">
-            <div class="ticker-inner" id="ticker-inner">
-                <span>⚙️ Admin dashboard active &nbsp;&nbsp;</span>
-                <span>📊 Total: <strong id="tk-total">{{ total }}</strong>
-            &nbsp;&nbsp;</span>
-                <span>✅ Completed:
-            <strong id="tk-completed">{{ completed }}</strong>
-            &nbsp;&nbsp;</span>
-                <span>❌ Cancelled:
-            <strong id="tk-cancelled">{{ cancelled }}</strong>
-            &nbsp;&nbsp;</span>
-                <span>⚙️ Admin dashboard active &nbsp;&nbsp;</span>
-                <span>📊 Total: <strong>{{ total }}</strong>&nbsp;&nbsp;</span>
-                <span>✅ Completed:
-            <strong>{{ completed }}</strong>&nbsp;&nbsp;</span>
-                <span>❌ Cancelled:
-            <strong>{{ cancelled }}</strong>&nbsp;&nbsp;</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="toast-container" id="toasts"></div>
-
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-
-    <style>
-        .loading-placeholder {
-            padding: 40px;
-            text-align: center;
-            color: var(--muted);
-            font-size: 14px;
-            grid-column: 1 / -1;
-        }
-        
-        .dcc-badge {
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 12px;
-            border-radius: 20px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: inline-block;
-        }
-        
-        .dcc-badge-active {
-            background: #f0fdf4;
-            color: #15803d;
-            border: 1px solid #bbf7d0;
-        }
-        
-        .dcc-badge-paused {
-            background: #fff7ed;
-            color: #c2410c;
-            border: 1px solid #fed7aa;
-        }
-        
-        .dcc-badge-closed {
-            background: #fff1f2;
-            color: #be123c;
-            border: 1px solid #fecdd3;
-        }
-        
-        .pulse-live {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: #059669;
-            font-weight: 600;
-        }
-    </style>
-
-    <script>
-        /* ═══════════════════════════════════════════════
-                   ADMIN DASHBOARD — FULL AUTO UPDATE
-                ═══════════════════════════════════════════════ */
-
-        /* ── Socket.IO ── */
-        var socket = io();
-
-        socket.on('connect', function() {
-            showToast('🔌', 'Connected',
-                'Live updates active', '#e11d48');
-        });
-
-        socket.on('disconnect', function() {
-            showToast('⚠️', 'Disconnected',
-                'Reconnecting...', '#d97706');
-        });
-
-        /* Listen for ANY queue status change */
-        socket.on('queue_status_changed', function(data) {
-            showToast(
-                data.status === 'closed' ? '🔴' :
-                data.status === 'paused' ? '⏸' : '▶',
-                'Queue ' + data.status,
-                data.dept + ' is now ' + data.status,
-                data.status === 'closed' ? '#e11d48' :
-                data.status === 'paused' ? '#d97706' : '#059669'
-            );
-            /* Immediately update the card without waiting for timer */
-            updateDeptCard(data.queue_id, data.status);
-            refreshAll();
-        });
-
-        socket.on('next_token', function(data) {
-            showToast('📢', 'Token Called',
-                'Now serving ' + data.token_number, '#e11d48');
-            refreshAll();
-        });
-
-        socket.on('queue_update', function() {
-            refreshAll();
-        });
-
-        /* ── Update single dept card status instantly ── */
-        function updateDeptCard(queueId, newStatus) {
-            var card = document.getElementById('dcc-' + queueId);
-            if (!card) return;
-
-            /* Update badge */
-            var badge = card.querySelector('.dcc-badge');
-            if (badge) {
-                badge.className = 'dcc-badge dcc-badge-' + newStatus;
-                badge.textContent = newStatus;
-            }
-
-            /* Update pause button text */
-            var pauseBtn = document.getElementById('pause-btn-' + queueId);
-            if (pauseBtn) {
-                pauseBtn.textContent = newStatus === 'paused' ?
-                    '▶ Resume' : '⏸ Pause';
-            }
-
-            /* Dim card if closed */
-            card.style.opacity = newStatus === 'closed' ? '0.55' : '1';
-            card.style.transition = 'opacity 0.4s ease';
+        var badge = card.querySelector('.dcc-badge');
+        if (badge) {
+            badge.className = 'dcc-badge dcc-badge-' + newStatus;
+            badge.textContent = newStatus;
         }
 
-        /* ── Render ALL dept cards ── */
-        function renderDeptCards(data) {
-            var grid = document.getElementById('dept-controls-grid');
-            if (!grid) return;
+        var pauseBtn = document.getElementById(
+            'pause-btn-' + queueId
+        );
+        if (pauseBtn) {
+            pauseBtn.textContent = newStatus === 'paused' ?
+                '▶ Resume' : '⏸ Pause';
+        }
 
-            var icons = {
-                'Banking': '🏦',
-                'Pharmacy': '💊',
-                'Immigration': '🛂',
-                'Medical': '🏥'
-            };
+        var closeBtn = card.querySelector('.dcc-close');
+        if (closeBtn) {
+            closeBtn.disabled = newStatus === 'closed';
+        }
 
-            var html = '';
-            data.forEach(function(q, idx) {
-                var icon = icons[q.department_name] || '🏢';
-                var opacity = q.status === 'closed' ? '0.55' : '1';
-                var serving = q.serving_token ?
-                    '🟢 Now Serving: ' + q.serving_token :
-                    'No token serving currently';
+        card.style.opacity = newStatus === 'closed' ? '0.55' : '1';
+        card.style.transition = 'opacity 0.4s ease';
 
-                html += '<div class="dept-control-card dcc-' +
-                    (idx + 1) + '" ' +
-                    'id="dcc-' + q.id + '" ' +
-                    'data-qid="' + q.id + '" ' +
-                    'style="opacity:' + opacity + ';' +
-                    'transition:opacity 0.4s ease">'
+        /* Update data attribute so future renders use correct status */
+        card.setAttribute('data-status', newStatus);
+    }
 
-                +
-                '<div class="dcc-header">' +
-                '<span class="dcc-name">' +
-                icon + ' ' + q.department_name +
-                    '</span>' +
-                    '<span class="dcc-badge dcc-badge-' + q.status + '">' +
-                    q.status +
-                    '</span>' +
-                    '</div>'
+    /* ── Render ALL dept cards from API data ── */
+    function renderDeptCards(data) {
+        var grid = document.getElementById('dept-controls-grid');
+        if (!grid) return;
 
-                +
-                '<div class="dcc-stats">' +
-                '<span id="dcc-wait-' + q.id + '">' +
-                    q.waiting_count +
-                    '</span> waiting' +
-                    '</div>'
+        var icons = {
+            'OPD': '🏥',
+            'Pharmacy': '💊',
+            'Laboratory': '🧪',
+            'Radiology': '🩻',
+            'Emergency': '🚨',
+            'Cardiology': '❤️',
+            'Pediatrics': '👶',
+            'Billing': '💳'
+        };
 
-                +
-                '<div class="dcc-serving" ' +
-                'id="serving-' + q.id + '">' +
-                    serving +
-                    '</div>'
+        var html = '';
+        data.forEach(function(q, idx) {
+            var icon = icons[q.department_name] || '🏥';
+            var opacity = q.status === 'closed' ? '0.55' : '1';
+            var serving = q.serving_token ?
+                '🟢 Now Serving: ' + q.serving_token :
+                'No token serving currently';
+            var pauseLabel = q.status === 'paused' ?
+                '▶ Resume' : '⏸ Pause';
+            var closedDisabled = q.status === 'closed' ?
+                ' disabled' : '';
 
-                +
-                '<div class="dcc-actions">' +
-                '<button class="btn btn-primary dcc-next">' +
-                '⏭ Next Token' +
+            html +=
+                '<div class="dept-control-card dcc-' + (idx + 1) + '"' +
+                ' id="dcc-' + q.id + '"' +
+                ' data-qid="' + q.id + '"' +
+                ' data-status="' + q.status + '"' +
+                ' style="opacity:' + opacity + ';' +
+                'transition:opacity 0.4s ease">'
+
+            +
+            '<div class="dcc-header">' +
+            '<span class="dcc-name">' +
+            icon + ' ' + q.department_name +
+                '</span>' +
+                '<span class="dcc-badge dcc-badge-' + q.status + '">' +
+                q.status +
+                '</span>' +
+                '</div>'
+
+            +
+            '<div class="dcc-stats">' +
+            '<span id="dcc-wait-' + q.id + '">' +
+                q.waiting_count +
+                '</span> waiting' +
+                '</div>'
+
+            +
+            '<div class="dcc-serving"' +
+            ' id="serving-' + q.id + '">' +
+                serving +
+                '</div>'
+
+            +
+            '<div class="dcc-actions">' +
+            '<button class="btn btn-primary dcc-next">' +
+            '⏭ Next Token' +
+            '</button>' +
+            '<button class="btn btn-ghost dcc-pause"' +
+            ' id="pause-btn-' + q.id + '">' +
+                pauseLabel +
                 '</button>' +
-                '<button class="btn btn-ghost dcc-pause" ' +
-                'id="pause-btn-' + q.id + '">' +
-                    (q.status === 'paused' ? '▶ Resume' : '⏸ Pause') +
-                    '</button>' +
-                    '<button class="btn btn-danger dcc-close"' +
-                    (q.status === 'closed' ? ' disabled' : '') + '>' +
-                    '✕ Close' +
-                    '</button>' +
-                    '</div>'
+                '<button class="btn btn-danger dcc-close"' +
+                closedDisabled + '>' +
+                '✕ Close' +
+                '</button>' +
+                '</div>'
 
-                +
-                '</div>';
-            });
+            +
+            '</div>';
+        });
 
-            grid.innerHTML = html;
+        grid.innerHTML = html;
+        attachDeptEvents();
+    }
 
-            /* Re-attach events after render */
-            attachDeptEvents();
-        }
-
-        /* ── Attach button events ── */
-        function attachDeptEvents() {
-            document.querySelectorAll('.dcc-next').forEach(function(btn) {
+    /* ── Attach button events ── */
+    function attachDeptEvents() {
+        document.querySelectorAll('.dcc-next').forEach(
+            function(btn) {
                 btn.addEventListener('click', function() {
-                    var qid = btn.closest('[data-qid]').getAttribute('data-qid');
+                    var qid = btn.closest('[data-qid]')
+                        .getAttribute('data-qid');
                     callNext(parseInt(qid, 10));
                 });
-            });
-            document.querySelectorAll('.dcc-pause').forEach(function(btn) {
+            }
+        );
+
+        document.querySelectorAll('.dcc-pause').forEach(
+            function(btn) {
                 btn.addEventListener('click', function() {
-                    var qid = btn.closest('[data-qid]').getAttribute('data-qid');
+                    var qid = btn.closest('[data-qid]')
+                        .getAttribute('data-qid');
                     pauseQueue(parseInt(qid, 10));
                 });
-            });
-            document.querySelectorAll('.dcc-close').forEach(function(btn) {
+            }
+        );
+
+        document.querySelectorAll('.dcc-close').forEach(
+            function(btn) {
                 btn.addEventListener('click', function() {
-                    var qid = btn.closest('[data-qid]').getAttribute('data-qid');
+                    var qid = btn.closest('[data-qid]')
+                        .getAttribute('data-qid');
                     closeQueueDept(parseInt(qid, 10));
                 });
-            });
+            }
+        );
+    }
+
+    /* ── Render token table ── */
+    function renderTokenTable(tokens) {
+        var tbody = document.getElementById('admin-tbody');
+        if (!tbody) return;
+
+        if (!tokens || tokens.length === 0) {
+            tbody.innerHTML =
+                '<tr><td colspan="6" class="empty-row">' +
+                'No tokens found.' +
+                '</td></tr>';
+            return;
         }
 
-        /* ── Render token table ── */
-        function renderTokenTable(tokens) {
-            var tbody = document.getElementById('admin-tbody');
-            if (!tbody) return;
+        var filter = '';
+        var searchEl = document.getElementById('token-search');
+        if (searchEl) filter = searchEl.value.toLowerCase();
 
-            if (!tokens || tokens.length === 0) {
-                tbody.innerHTML =
-                    '<tr><td colspan="6" class="empty-row">' +
-                    'No tokens found.' +
-                    '</td></tr>';
+        var html = '';
+        tokens.forEach(function(t, idx) {
+            if (filter &&
+                !JSON.stringify(t).toLowerCase().includes(filter)) {
                 return;
             }
+            html +=
+                '<tr style="animation:fadeRowIn 0.3s ease ' +
+                (idx * 0.04) + 's both">' +
+                '<td>' +
+                '<span class="token-chip chip-rose">' +
+                t.token_number +
+                '</span></td>' +
+                '<td>' + t.user_name + '</td>' +
+                '<td>' + t.dept_name + '</td>' +
+                '<td>' +
+                '<span class="status-badge s-' + t.status + '">' +
+                t.status +
+                '</span></td>' +
+                '<td class="text-muted">' + t.created_at + '</td>' +
+                '<td class="text-rose">' + t.est_wait + '</td>' +
+                '</tr>';
+        });
 
-            var filter = '';
-            var searchEl = document.getElementById('token-search');
-            if (searchEl) filter = searchEl.value.toLowerCase();
+        tbody.innerHTML = html ||
+            '<tr><td colspan="6" class="empty-row">' +
+            'No matching tokens.</td></tr>';
+    }
 
-            var html = '';
-            tokens.forEach(function(t, idx) {
-                if (filter && !JSON.stringify(t).toLowerCase().includes(filter)) {
-                    return;
-                }
-                html += '<tr style="animation:fadeRowIn 0.3s ease ' +
-                    (idx * 0.04) + 's both">' +
-                    '<td><span class="token-chip chip-rose">' +
-                    t.token_number +
-                    '</span></td>' +
-                    '<td>' + t.user_name + '</td>' +
-                    '<td>' + t.dept_name + '</td>' +
-                    '<td><span class="status-badge s-' + t.status + '">' +
-                    t.status +
-                    '</span></td>' +
-                    '<td class="text-muted">' + t.created_at + '</td>' +
-                    '<td class="text-rose">' + t.est_wait + '</td>' +
-                    '</tr>';
-            });
+    /* ── Update stats only ── */
+    function refreshStats() {
+        fetch('/admin/stats')
+            .then(function(r) {
+                return r.json();
+            })
+            .then(function(data) {
+                updateStats(data);
+            })
+            .catch(function() {});
+    }
 
-            tbody.innerHTML = html || '<tr><td colspan="6" class="empty-row">' +
-                'No matching tokens.</td></tr>';
-        }
+    /* ── Update token table only ── */
+    function refreshTokenTable() {
+        fetch('/admin/token-list')
+            .then(function(r) {
+                return r.json();
+            })
+            .then(function(data) {
+                renderTokenTable(data);
+            })
+            .catch(function() {});
+    }
 
-        /* ── Update stat cards ── */
-        function updateStats(data) {
-            var fields = {
-                'stat-total': data.total,
-                'stat-waiting': data.waiting,
-                'stat-completed': data.completed,
-                'stat-cancelled': data.cancelled,
-                'tk-total': data.total,
-                'tk-completed': data.completed,
-                'tk-cancelled': data.cancelled
-            };
-            Object.keys(fields).forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el && el.textContent != fields[id]) {
-                    el.textContent = fields[id];
-                    /* Flash animation on change */
-                    el.style.transition = 'transform 0.2s ease, color 0.2s ease';
-                    el.style.transform = 'scale(1.15)';
-                    setTimeout(function() {
-                        el.style.transform = 'scale(1)';
-                    }, 200);
-                }
-            });
-
-            /* Update last updated time */
-            var now = new Date();
-            var timeStr = now.toLocaleTimeString();
-            var lu = document.getElementById('last-updated');
-            if (lu) {
-                lu.innerHTML =
-                    'Real-time control &nbsp;•&nbsp; ' +
-                    '<span style="color:var(--rose);font-weight:600">' +
-                    '⚡ Updated ' + timeStr +
-                    '</span>';
-            }
-        }
-
-        /* ── MAIN REFRESH FUNCTION ── */
-        function refreshAll() {
-
-            /* 1. Refresh dept cards */
-            fetch('/admin/queue-list')
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(data) {
-                    renderDeptCards(data);
-                })
-                .catch(function() {});
-
-            /* 2. Refresh token table */
-            fetch('/admin/token-list')
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(data) {
-                    renderTokenTable(data);
-                })
-                .catch(function() {});
-
-            /* 3. Refresh stats */
-            fetch('/admin/stats')
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(data) {
-                    updateStats(data);
-                })
-                .catch(function() {});
-        }
-
-        /* ── Force refresh button ── */
-        function forceRefresh() {
-            refreshAll();
-            showToast('🔄', 'Refreshed',
-                'Dashboard updated now', '#059669');
-        }
-
-        /* ── CALL NEXT ── */
-        function callNext(queueId) {
-            fetch('/admin/next-token/' + queueId, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(d) {
-                    if (d.success) {
-                        showToast('📢', 'Called!',
-                            'Now serving ' + d.token.token_number, '#e11d48');
-                        var el = document.getElementById('serving-' + queueId);
-                        if (el) {
-                            el.innerHTML =
-                                '<span class="pulse-live">' +
-                                '<span class="pulse-dot green"></span>' +
-                                ' Now Serving: <strong>' +
-                                d.token.token_number +
-                                '</strong></span>';
-                        }
-                        refreshAll();
-                    } else {
-                        showToast('ℹ️', 'Queue Empty', d.message, '#64748b');
-                    }
-                })
-                .catch(function() {
-                    showToast('❌', 'Error',
-                        'Could not call next token', '#e11d48');
-                });
-        }
-
-        /* ── PAUSE QUEUE ── */
-        function pauseQueue(queueId) {
-            fetch('/admin/pause-queue/' + queueId, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(d) {
-                    /* Instantly update without waiting for socket */
-                    updateDeptCard(queueId, d.status);
-                    showToast(
-                        d.status === 'paused' ? '⏸' : '▶',
-                        'Queue ' + d.status,
-                        'Department queue is now ' + d.status,
-                        d.status === 'paused' ? '#d97706' : '#059669'
-                    );
-                    refreshAll();
-                })
-                .catch(function() {
-                    showToast('❌', 'Error',
-                        'Could not update queue', '#e11d48');
-                });
-        }
-
-        /* ── CLOSE QUEUE ── */
-        function closeQueueDept(queueId) {
-            if (!confirm(
-                    'Close this queue? All waiting customers will be affected.'
-                )) return;
-
-            fetch('/admin/close-queue/' + queueId, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(d) {
-                    /* Instantly update card to closed — NO page refresh needed */
-                    updateDeptCard(queueId, 'closed');
-                    showToast('🔴', 'Queue Closed',
-                        'Department queue has been closed', '#e11d48');
-                    refreshAll();
-                })
-                .catch(function() {
-                    showToast('❌', 'Error',
-                        'Could not close queue', '#e11d48');
-                });
-        }
-
-        /* ── EXPORT ── */
-        function exportReport() {
-            showToast('📊', 'Exporting',
-                'Generating report...', '#1d4ed8');
-        }
-
-        /* ── SECTION SWITCHER ── */
-        function switchNav(el, name) {
-            document.querySelectorAll('.nav-item').forEach(function(n) {
-                n.classList.remove('active');
-            });
-            el.classList.add('active');
-
-            var ids = ['dashboard', 'depts', 'tokens', 'analytics'];
-            ids.forEach(function(id) {
-                var sec = document.getElementById('section-' + id);
-                if (!sec) return;
-                sec.style.display = (id === name) ? 'block' : 'none';
-            });
-
-            if (name === 'analytics') loadCharts();
-            if (name === 'tokens') refreshAll();
-        }
-
-        /* ── SEARCH FILTER ── */
-        document.addEventListener('DOMContentLoaded', function() {
-            var searchInput = document.getElementById('token-search');
-            if (searchInput) {
-                searchInput.addEventListener('input', function() {
-                    fetch('/admin/token-list')
-                        .then(function(r) {
-                            return r.json();
-                        })
-                        .then(function(data) {
-                            renderTokenTable(data);
-                        })
-                        .catch(function() {});
-                });
+    /* ── Update stat numbers ── */
+    function updateStats(data) {
+        var fields = {
+            'stat-total': data.total,
+            'stat-waiting': data.waiting,
+            'stat-completed': data.completed,
+            'stat-cancelled': data.cancelled
+        };
+        Object.keys(fields).forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && el.textContent != fields[id]) {
+                el.textContent = fields[id];
+                el.style.transition = 'transform 0.2s ease';
+                el.style.transform = 'scale(1.15)';
+                setTimeout(function() {
+                    el.style.transform = 'scale(1)';
+                }, 200);
             }
         });
 
-        /* ── CHARTS ── */
-        var chartsLoaded = false;
+        var now = new Date();
+        var lu = document.getElementById('last-updated');
+        if (lu) {
+            lu.innerHTML =
+                'Real-time control &nbsp;•&nbsp;' +
+                '<span style="color:var(--rose);font-weight:600">' +
+                ' ⚡ Updated ' + now.toLocaleTimeString() +
+                '</span>';
+        }
+    }
 
-        function loadCharts() {
-            if (chartsLoaded) return;
-            chartsLoaded = true;
+    /* ── MAIN REFRESH — reads DB status correctly ── */
+    function refreshAll() {
+        /* Refresh dept cards with REAL status from DB */
+        fetch('/admin/queue-list')
+            .then(function(r) {
+                return r.json();
+            })
+            .then(function(data) {
+                renderDeptCards(data);
+            })
+            .catch(function() {});
 
-            fetch('/admin/analytics')
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(data) {
-                    var labels = [];
-                    var totals = [];
-                    var done = [];
-                    var cancels = [];
+        /* Refresh token table */
+        refreshTokenTable();
 
-                    data.forEach(function(d) {
-                        labels.push(d.dept);
-                        totals.push(d.total);
-                        done.push(d.completed);
-                        cancels.push(d.cancelled);
-                    });
+        /* Refresh stats */
+        refreshStats();
+    }
 
-                    var barEl = document.getElementById('deptChart');
-                    if (barEl) {
-                        new Chart(barEl, {
-                            type: 'bar',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: 'Total',
-                                    data: totals,
-                                    backgroundColor: 'rgba(225,29,72,0.7)',
-                                    borderRadius: 8
-                                }, {
-                                    label: 'Completed',
-                                    data: done,
-                                    backgroundColor: 'rgba(16,185,129,0.7)',
-                                    borderRadius: 8
-                                }, {
-                                    label: 'Cancelled',
-                                    data: cancels,
-                                    backgroundColor: 'rgba(251,113,133,0.6)',
-                                    borderRadius: 8
-                                }]
+    /* ── Force refresh button ── */
+    function forceRefresh() {
+        refreshAll();
+        showToast('🔄', 'Refreshed',
+            'Dashboard updated', '#059669');
+    }
+
+    /* ── CALL NEXT ── */
+    function callNext(queueId) {
+        fetch('/admin/next-token/' + queueId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(function(r) {
+                return r.json();
+            })
+            .then(function(d) {
+                if (d.success) {
+                    showToast('📢', 'Called!',
+                        'Now serving ' + d.token.token_number, '#e11d48');
+                    var el = document.getElementById(
+                        'serving-' + queueId
+                    );
+                    if (el) {
+                        el.innerHTML =
+                            '<span style="color:#059669;font-weight:600">' +
+                            '🟢 Now Serving: ' +
+                            d.token.token_number +
+                            '</span>';
+                    }
+                    refreshStats();
+                    refreshTokenTable();
+                } else {
+                    showToast('ℹ️', 'Empty', d.message, '#64748b');
+                }
+            })
+            .catch(function() {
+                showToast('❌', 'Error',
+                    'Could not call next token', '#e11d48');
+            });
+    }
+
+    /* ── PAUSE QUEUE ── */
+    function pauseQueue(queueId) {
+        /* Disable button immediately to prevent double click */
+        var btn = document.getElementById('pause-btn-' + queueId);
+        if (btn) btn.disabled = true;
+
+        fetch('/admin/pause-queue/' + queueId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(function(r) {
+                return r.json();
+            })
+            .then(function(d) {
+                /* Update card immediately with real status from server */
+                updateDeptCard(queueId, d.status);
+
+                /* Re-enable button */
+                if (btn) btn.disabled = false;
+
+                showToast(
+                    d.status === 'paused' ? '⏸' : '▶',
+                    'Queue ' + d.status,
+                    'Department is now ' + d.status,
+                    d.status === 'paused' ? '#d97706' : '#059669'
+                );
+            })
+            .catch(function() {
+                if (btn) btn.disabled = false;
+                showToast('❌', 'Error',
+                    'Could not update queue', '#e11d48');
+            });
+    }
+
+    /* ── CLOSE QUEUE ── */
+    function closeQueueDept(queueId) {
+        if (!confirm(
+                'Close this queue? All waiting patients will be affected.'
+            )) return;
+
+        fetch('/admin/close-queue/' + queueId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(function(r) {
+                return r.json();
+            })
+            .then(function() {
+                updateDeptCard(queueId, 'closed');
+                showToast('🔴', 'Queue Closed',
+                    'Department queue is now closed', '#e11d48');
+                refreshStats();
+            })
+            .catch(function() {
+                showToast('❌', 'Error',
+                    'Could not close queue', '#e11d48');
+            });
+    }
+
+    /* ── EXPORT ── */
+    function exportReport() {
+        showToast('📊', 'Exporting',
+            'Generating report...', '#1d4ed8');
+    }
+
+    /* ── SECTION SWITCHER ── */
+    function switchNav(el, name) {
+        document.querySelectorAll('.nav-item').forEach(
+            function(n) {
+                n.classList.remove('active');
+            }
+        );
+        el.classList.add('active');
+
+        var ids = ['dashboard', 'depts', 'tokens', 'analytics'];
+        ids.forEach(function(id) {
+            var sec = document.getElementById('section-' + id);
+            if (!sec) return;
+            sec.style.display = (id === name) ? 'block' : 'none';
+        });
+
+        if (name === 'analytics') loadCharts();
+        if (name === 'tokens') refreshTokenTable();
+    }
+
+    /* ── SEARCH FILTER ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        var searchInput = document.getElementById('token-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                refreshTokenTable();
+            });
+        }
+    });
+
+    /* ── CHARTS ── */
+    var chartsLoaded = false;
+
+    function loadCharts() {
+        if (chartsLoaded) return;
+        chartsLoaded = true;
+
+        fetch('/admin/analytics')
+            .then(function(r) {
+                return r.json();
+            })
+            .then(function(data) {
+                var labels = [];
+                var totals = [];
+                var done = [];
+                var cancels = [];
+
+                data.forEach(function(d) {
+                    labels.push(d.dept);
+                    totals.push(d.total);
+                    done.push(d.completed);
+                    cancels.push(d.cancelled);
+                });
+
+                var barEl = document.getElementById('deptChart');
+                if (barEl) {
+                    new Chart(barEl, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Total',
+                                data: totals,
+                                backgroundColor: 'rgba(225,29,72,0.7)',
+                                borderRadius: 8
+                            }, {
+                                label: 'Completed',
+                                data: done,
+                                backgroundColor: 'rgba(16,185,129,0.7)',
+                                borderRadius: 8
+                            }, {
+                                label: 'Cancelled',
+                                data: cancels,
+                                backgroundColor: 'rgba(251,113,133,0.6)',
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: '#44333a'
+                                    }
+                                }
                             },
-                            options: {
-                                responsive: true,
-                                plugins: {
-                                    legend: {
-                                        labels: {
-                                            color: '#44333a'
-                                        }
+                            scales: {
+                                x: {
+                                    ticks: {
+                                        color: '#9c7b85'
+                                    },
+                                    grid: {
+                                        color: 'rgba(225,29,72,0.06)'
                                     }
                                 },
-                                scales: {
-                                    x: {
-                                        ticks: {
-                                            color: '#9c7b85'
-                                        },
-                                        grid: {
-                                            color: 'rgba(225,29,72,0.06)'
-                                        }
+                                y: {
+                                    ticks: {
+                                        color: '#9c7b85'
                                     },
-                                    y: {
-                                        ticks: {
-                                            color: '#9c7b85'
-                                        },
-                                        grid: {
-                                            color: 'rgba(225,29,72,0.06)'
-                                        }
+                                    grid: {
+                                        color: 'rgba(225,29,72,0.06)'
                                     }
                                 }
                             }
-                        });
-                    }
+                        }
+                    });
+                }
 
-                    var td = 0;
-                    var tc = 0;
-                    var ta = 0;
-                    done.forEach(function(v) {
-                        td += v;
-                    });
-                    cancels.forEach(function(v) {
-                        tc += v;
-                    });
-                    totals.forEach(function(v) {
-                        ta += v;
-                    });
+                var td = 0;
+                var tc = 0;
+                var ta = 0;
+                done.forEach(function(v) {
+                    td += v;
+                });
+                cancels.forEach(function(v) {
+                    tc += v;
+                });
+                totals.forEach(function(v) {
+                    ta += v;
+                });
 
-                    var doughEl = document.getElementById('statusChart');
-                    if (doughEl) {
-                        new Chart(doughEl, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['Completed', 'Waiting', 'Cancelled'],
-                                datasets: [{
-                                    data: [td, ta - td - tc, tc],
-                                    backgroundColor: ['#10b981', '#e11d48', '#fb7185'],
-                                    borderWidth: 0
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                cutout: '70%',
-                                plugins: {
-                                    legend: {
-                                        labels: {
-                                            color: '#44333a'
-                                        }
+                var doughEl = document.getElementById('statusChart');
+                if (doughEl) {
+                    new Chart(doughEl, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Completed', 'Waiting', 'Cancelled'],
+                            datasets: [{
+                                data: [td, ta - td - tc, tc],
+                                backgroundColor: [
+                                    '#10b981', '#e11d48', '#fb7185'
+                                ],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            cutout: '70%',
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: '#44333a'
                                     }
                                 }
                             }
-                        });
-                    }
-                })
-                .catch(function() {});
-        }
+                        }
+                    });
+                }
+            })
+            .catch(function() {});
+    }
 
-        /* ── INIT ── */
-        /* Load everything on page load */
+    /* ── INIT ── */
+    /* Load everything on page load */
+    refreshAll();
+
+    /* 
+      KEY FIX:
+      Refresh stats and tokens every 5 seconds
+      BUT only refresh dept cards every 30 seconds
+      This prevents pause state from being overwritten
+    */
+    setInterval(function() {
+        refreshStats();
+        refreshTokenTable();
+    }, 5000);
+
+    /* Dept cards refresh less frequently */
+    setInterval(function() {
         refreshAll();
-
-        /* Auto refresh every 5 seconds */
-        setInterval(refreshAll, 5000);
-    </script>
-</body>
-
-</html>
+    }, 30000);
+</script>

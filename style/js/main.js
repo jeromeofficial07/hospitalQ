@@ -885,6 +885,4 @@ function debounce(fn, delay) {
     refreshBadge();
     setInterval(refreshBadge, 12000);
 })();
-this.col = Math.random() > 0.5 ?
-    [225, 29, 72] :
-    [251, 113, 133];
+this.col = Math.random() > 0.5 ? [225, 29, 72] : [251, 113, 133];

@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard — QueueFlow Hospital</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="app-page">
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <div class="logo-icon">🏥</div>
+            <div>
+                <div class="logo-text">HospitalQ</div>
+                <div class="logo-sub">Patient Portal</div>
+            </div>
+        </div>
+
+        <span class="nav-label">Menu</span>
+
+        <div class="nav-item active" onclick="switchNav(this,'main')">
+            <span>⬡</span><span>Dashboard</span>
+        </div>
+        <div class="nav-item" onclick="window.location='/my-token'">
+            <span>🎫</span><span>My Active Token</span> {% if active_token %}
+            <span class="nav-badge">1</span> {% endif %}
+        </div>
+        <div class="nav-item" onclick="switchNav(this,'history')">
+            <span>📋</span><span>Token History</span>
+        </div>
+        <div class="nav-item" onclick="switchNav(this,'live')">
+            <span>📡</span><span>Live Queue</span>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="avatar">
+                    {{ session['user_name'][0] | upper }}
+                </div>
+                <div>
+                    <div class="user-name">{{ session['user_name'] }}</div>
+                    <div class="user-role">Patient</div>
+                </div>
+            </div>
+            <a href="/logout" class="btn btn-ghost" style="width:100%;justify-content:center">
+      ↩ Logout
+    </a>
+        </div>
+    </div>
+
+    <main class="main-content">
+
+        <div class="page-header">
+            <div>
+                <div class="page-title">
+                    Welcome, {{ session['user_name'] }} 👋
+                </div>
+                <div class="page-sub">
+                    Hospital Queue Management Portal
+                </div>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for cat, msg in messages %}
+        <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %} {% endif %} {% endwith %}
+
+        <!-- SECTION MAIN -->
+        <div id="section-main">
+
+            <!-- ACTIVE TOKEN BANNER -->
+            {% if active_token %}
+            <div class="active-token-banner" onclick="window.location='/my-token'" style="cursor:pointer">
+                <div class="atb-left">
+                    <div class="atb-label">
+                        <span class="pulse-dot green"></span> Your Active Token
+                    </div>
+                    <div class="atb-number">
+                        {{ active_token.token_number }}
+                    </div>
+                    <div class="atb-dept">
+                        {{ active_token.queue.department_name }} Department
+                    </div>
+                    <span class="status-badge s-{{ active_token.status }}" style="margin-top:8px;display:inline-block">
+          {{ active_token.status }}
+        </span>
+                </div>
+                <div class="atb-right">
+                    <div class="atb-stat">
+                        <span id="atb-position">—</span>
+                        <label>Ahead of you</label>
+                    </div>
+                    <div class="atb-stat">
+                        <span id="atb-wait">—</span>
+                        <label>Est. minutes</label>
+                    </div>
+                    <a href="/my-token" class="btn btn-primary" style="margin-top:12px" onclick="event.stopPropagation()">
+          View Full Token →
+        </a>
+                </div>
+                <div class="atb-cancel">
+                    <form method="POST" action="/cancel-token/{{ active_token.id }}" onsubmit="return confirm(
+                'Cancel your token?'
+              )">
+                        <button type="submit" class="btn btn-danger" onclick="event.stopPropagation()">
+            ✕ Cancel
+          </button>
+                    </form>
+                </div>
+            </div>
+
+            {% else %}
+            <div class="no-token-banner">
+                <div class="ntb-icon">🎫</div>
+                <div>
+                    <strong>No active token</strong>
+                    <p>Select a department below to join the queue</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- DEPT SELECTION -->
+            <div class="section-card">
+                <div class="sc-title">
+                    🏥 Select Department &amp; Get Token
+                </div>
+
+                {% if active_token %}
+                <div class="flash flash-warning">
+                    ⚠️ You have active token
+                    <strong>{{ active_token.token_number }}</strong>. Cancel it first to join another queue.
+                </div>
+                {% endif %}
+
+                <div class="dept-picker-grid">
+                    {% for queue in queues %}
+                    <form method="POST" action="/generate-token">
+                        <input type="hidden" name="queue_id" value="{{ queue.id }}">
+                        <button type="submit" class="dept-pick-btn
+              {% if active_token %}disabled-dept{% endif %}" {% if active_token %}disabled{% endif %}>
+            <span class="dp-icon">
+              {% if queue.department_name == 'OPD' %}🏥
+              {% elif queue.department_name == 'Pharmacy' %}💊
+              {% elif queue.department_name == 'Laboratory' %}🧪
+              {% elif queue.department_name == 'Radiology' %}🩻
+              {% elif queue.department_name == 'Emergency' %}🚨
+              {% elif queue.department_name == 'Cardiology' %}❤️
+              {% elif queue.department_name == 'Pediatrics' %}👶
+              {% elif queue.department_name == 'Billing' %}💳
+              {% else %}🏥
+              {% endif %}
+            </span>
+            <span class="dp-name">
+              {{ queue.department_name }}
+            </span>
+            <span class="dp-status {{ queue.status }}">
+              {{ queue.status }}
+            </span>
+            <span class="dp-waiting"
+                  id="wait-{{ queue.id }}">
+              Loading...
+            </span>
+          </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+        <!-- end section-main -->
+
+        <!-- SECTION HISTORY -->
+        <div id="section-history" style="display:none">
+            <div class="section-card">
+                <div class="sc-title">📋 My Token History</div>
+                <table class="queue-table">
+                    <thead>
+                        <tr>
+                            <th>Token</th>
+                            <th>Department</th>
+                            <th>Status</th>
+                            <th>Date &amp; Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tokens %}
+                        <tr>
+                            <td>
+                                <span class="token-chip chip-rose">
+                {{ t.token_number }}
+              </span>
+                            </td>
+                            <td>{{ t.queue.department_name }}</td>
+                            <td>
+                                <span class="status-badge s-{{ t.status }}">
+                {{ t.status }}
+              </span>
+                            </td>
+                            <td class="text-muted">
+                                {{ t.created_at.strftime('%d %b %Y, %H:%M') }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-row">
+                                No tokens yet. Generate one above!
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION LIVE -->
+        <div id="section-live" style="display:none">
+            <div class="section-card">
+                <div class="sc-title">📡 Live Queue Status</div>
+                <div id="live-queue-display">
+                    <p class="text-muted" style="padding:20px">
+                        Loading...
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <div class="ticker-bar">
+        <div class="ticker-label">LIVE</div>
+        <div class="ticker-track">
+            <div class="ticker-inner">
+                <span>🏥 Hospital Queue System Active &nbsp;&nbsp;</span>
+                <span>📱 Click My Active Token to track position
+            &nbsp;&nbsp;</span>
+                <span>⏱ Average wait time: 8 minutes &nbsp;&nbsp;</span>
+                <span>🔔 Get notified when your turn comes &nbsp;&nbsp;</span>
+                <span>🏥 Hospital Queue System Active &nbsp;&nbsp;</span>
+                <span>📱 Click My Active Token to track position
+            &nbsp;&nbsp;</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toasts"></div>
+
+    <style>
+        .active-token-banner {
+            background: linear-gradient(135deg, #fff1f2, #ffe4e6);
+            border: 2px solid #fca5a5;
+            border-radius: 24px;
+            padding: 28px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 24px;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 30px rgba(225, 29, 72, 0.12);
+            transition: all 0.3s;
+        }
+        
+        .active-token-banner:hover {
+            box-shadow: 0 12px 40px rgba(225, 29, 72, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .active-token-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #e11d48, #fb7185, #e11d48);
+            background-size: 200% 100%;
+            animation: gradMove 2s linear infinite;
+        }
+        
+        @keyframes gradMove {
+            0% {
+                background-position: 0%;
+            }
+            100% {
+                background-position: 200%;
+            }
+        }
+        
+        .atb-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--rose);
+            margin-bottom: 8px;
+        }
+        
+        .atb-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 52px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #e11d48, #be123c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        
+        .atb-dept {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .atb-right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            text-align: center;
+        }
+        
+        .atb-stat {
+            text-align: center;
+        }
+        
+        .atb-stat span {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #e11d48, #be123c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+            line-height: 1;
+        }
+        
+        .atb-stat label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .atb-cancel {
+            display: flex;
+            align-items: center;
+        }
+        
+        @media (max-width: 768px) {
+            .active-token-banner {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            .atb-label {
+                justify-content: center;
+            }
+            .atb-cancel {
+                justify-content: center;
+            }
+        }
+    </style>
+
+    <!-- Store active queue id safely in hidden input -->
+    {% if active_token %}
+    <input type="hidden" id="active-queue-id" value="{{ active_token.queue_id }}"> {% else %}
+    <input type="hidden" id="active-queue-id" value=""> {% endif %}
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <script>
+        /* Read queue id from hidden input — NO Jinja in JS */
+        var activeQueueId = document.getElementById(
+            'active-queue-id'
+        ).value;
+
+        var socket = io();
+
+        socket.on('next_token', function(data) {
+            showToast('📢', 'Queue Moving!',
+                'Now serving ' + data.token_number, '#e11d48');
+            loadStatus();
+        });
+
+        socket.on('queue_update', function() {
+            loadStatus();
+        });
+
+        function loadStatus() {
+            /* Update dept waiting counts */
+            fetch('/live-queue')
+                .then(function(r) {
+                    return r.json();
+                })
+                .then(function(data) {
+                    data.forEach(function(q) {
+                        var el = document.getElementById('wait-' + q.id);
+                        if (el) {
+                            el.textContent = q.waiting_count + ' waiting';
+                        }
+                    });
+
+                    /* Live queue section */
+                    var liveDiv = document.getElementById(
+                        'live-queue-display'
+                    );
+                    if (liveDiv) {
+                        var icons = {
+                            'OPD': '🏥',
+                            'Pharmacy': '💊',
+                            'Laboratory': '🧪',
+                            'Radiology': '🩻',
+                            'Emergency': '🚨',
+                            'Cardiology': '❤️',
+                            'Pediatrics': '👶',
+                            'Billing': '💳'
+                        };
+                        var html = '<div class="dept-picker-grid">';
+                        data.forEach(function(q) {
+                            html +=
+                                '<div class="dept-pick-btn"' +
+                                ' style="cursor:default">' +
+                                '<span class="dp-icon">' +
+                                (icons[q.department_name] || '🏥') +
+                                '</span>' +
+                                '<span class="dp-name">' +
+                                q.department_name +
+                                '</span>' +
+                                '<span class="dp-waiting">' +
+                                q.waiting_count + ' waiting' +
+                                '</span>' +
+                                '<span class="status-badge s-' +
+                                q.status + '">' +
+                                q.status +
+                                '</span>' +
+                                '</div>';
+                        });
+                        html += '</div>';
+                        liveDiv.innerHTML = html;
+                    }
+                })
+                .catch(function() {});
+
+            /* Update active token position via API */
+            if (activeQueueId) {
+                fetch('/token-status')
+                    .then(function(r) {
+                        return r.json();
+                    })
+                    .then(function(d) {
+                        if (d.has_token) {
+                            var pos = document.getElementById('atb-position');
+                            var wait = document.getElementById('atb-wait');
+                            if (pos) pos.textContent = d.position;
+                            if (wait) wait.textContent = d.est_wait;
+                        }
+                    })
+                    .catch(function() {});
+            }
+        }
+
+        function switchNav(el, name) {
+            document.querySelectorAll('.nav-item').forEach(
+                function(n) {
+                    n.classList.remove('active');
+                }
+            );
+            el.classList.add('active');
+
+            var secs = ['main', 'history', 'live'];
+            secs.forEach(function(s) {
+                var sec = document.getElementById('section-' + s);
+                if (sec) {
+                    sec.style.display = s === name ? 'block' : 'none';
+                }
+            });
+
+            if (name === 'live') loadStatus();
+        }
+
+        /* Init */
+        loadStatus();
+        setInterval(loadStatus, 8000);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QueueFlow — Smart Queue Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="landing-page">
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="nav-logo">
+            <div class="logo-icon">⚡</div>
+            <span class="logo-text">QueueFlow</span>
+        </div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#live">Live Queue</a>
+            <a href="#about">About</a>
+        </div>
+        <div class="nav-actions">
+            <a href="/login" class="btn btn-ghost">Login</a>
+            <a href="/register" class="btn btn-primary">Get Started</a>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-bg-orb orb1"></div>
+        <div class="hero-bg-orb orb2"></div>
+        <div class="hero-content">
+            <div class="hero-badge">🚀 Real-Time Queue Management</div>
+            <h1 class="hero-title">
+                Manage Queues<br>
+                <span class="gradient-text">Smarter & Faster</span>
+            </h1>
+            <p class="hero-sub">
+                QueueFlow eliminates waiting frustration with live token tracking, instant notifications, and AI-powered wait time predictions.
+            </p>
+            <div class="hero-btns">
+                <a href="/register" class="btn btn-primary btn-lg">
+        🎫 Get Your Token
+      </a>
+                <a href="/login?role=admin" class="btn btn-ghost btn-lg">
+        ⚙️ Admin Portal
+      </a>
+            </div>
+            <div class="hero-stats">
+                <div class="h-stat">
+                    <span class="h-stat-val" data-count="12400">0</span>+
+                    <span class="h-stat-label">Tokens Issued</span>
+                </div>
+                <div class="h-stat-divider"></div>
+                <div class="h-stat">
+                    <span class="h-stat-val" data-count="98">0</span>%
+                    <span class="h-stat-label">Satisfaction</span>
+                </div>
+                <div class="h-stat-divider"></div>
+                <div class="h-stat">
+                    <span class="h-stat-val" data-count="4">0</span>
+                    <span class="h-stat-label">Departments</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3D TOKEN MOCKUP -->
+        <div class="hero-visual">
+            <div class="token-scene">
+                <div class="token-card floating">
+                    <div class="tc-header">
+                        <span class="tc-dept">🏦 Banking</span>
+                        <span class="tc-live"><span class="pulse-dot green"></span>LIVE</span>
+                    </div>
+                    <div class="tc-number">B-042</div>
+                    <div class="tc-info">
+                        <div class="tc-row"><span>Now Serving</span><strong>B-039</strong></div>
+                        <div class="tc-row"><span>Est. Wait</span><strong>~8 min</strong></div>
+                        <div class="tc-row"><span>Ahead of you</span><strong>3 people</strong></div>
+                    </div>
+                    <div class="tc-progress">
+                        <div class="tc-bar"></div>
+                    </div>
+                </div>
+                <!-- Floating mini cards -->
+                <div class="mini-float-card mfc1">
+                    <span>✅</span> Token C-018 Served
+                </div>
+                <div class="mini-float-card mfc2">
+                    <span>🔔</span> Your turn in 5 min!
+                </div>
+                <div class="mini-float-card mfc3">
+                    <span>📊</span> 7 in queue
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- LIVE QUEUE PREVIEW -->
+    <section class="section" id="live">
+        <div class="section-label">LIVE STATUS</div>
+        <h2 class="section-title">Real-Time Department Status</h2>
+        <div class="dept-grid" id="dept-cards">
+            <!-- Filled by JS -->
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="section" id="features">
+        <div class="section-label">FEATURES</div>
+        <h2 class="section-title">Everything You Need</h2>
+        <div class="features-grid">
+            <div class="feat-card" style="--fc:#4f46e5">
+                <div class="feat-icon">🎫</div>
+                <h3>Smart Tokenization</h3>
+                <p>Generate digital tokens instantly. No paper, no confusion.</p>
+            </div>
+            <div class="feat-card" style="--fc:#06b6d4">
+                <div class="feat-icon">⚡</div>
+                <h3>Real-Time Updates</h3>
+                <p>SocketIO-powered live queue status with zero refresh needed.</p>
+            </div>
+            <div class="feat-card" style="--fc:#10b981">
+                <div class="feat-icon">🤖</div>
+                <h3>AI Wait Prediction</h3>
+                <p>Machine learning estimates your exact wait time dynamically.</p>
+            </div>
+            <div class="feat-card" style="--fc:#f59e0b">
+                <div class="feat-icon">📱</div>
+                <h3>SMS Notifications</h3>
+                <p>Get alerted the moment your turn is approaching.</p>
+            </div>
+            <div class="feat-card" style="--fc:#7c3aed">
+                <div class="feat-icon">📊</div>
+                <h3>Analytics Dashboard</h3>
+                <p>Peak hours, completion rates, and department performance.</p>
+            </div>
+            <div class="feat-card" style="--fc:#f43f5e">
+                <div class="feat-icon">🔐</div>
+                <h3>Secure Auth</h3>
+                <p>Role-based access with hashed passwords and session control.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="logo-text">⚡ QueueFlow</div>
+        <p>Smart Queue Management System • Built with Flask + SocketIO</p>
+        <p style="color:#334155;margin-top:8px">© 2026 QueueFlow. All rights reserved.</p>
+    </footer>
+
+    <div class="toast-container" id="toasts"></div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

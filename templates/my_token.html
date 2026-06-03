@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Token — QueueFlow Hospital</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="app-page">
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <div class="logo-icon">🏥</div>
+            <div>
+                <div class="logo-text">HospitalQ</div>
+                <div class="logo-sub">Patient Portal</div>
+            </div>
+        </div>
+        <span class="nav-label">Menu</span>
+        <div class="nav-item" onclick="window.location='/dashboard'">
+            <span>⬡</span><span>Dashboard</span>
+        </div>
+        <div class="nav-item active">
+            <span>🎫</span><span>My Active Token</span> {% if active_token %}
+            <span class="nav-badge">1</span> {% endif %}
+        </div>
+        <div class="nav-item" onclick="window.location='/dashboard'">
+            <span>📋</span><span>Token History</span>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="avatar">
+                    {{ session['user_name'][0] | upper }}
+                </div>
+                <div>
+                    <div class="user-name">{{ session['user_name'] }}</div>
+                    <div class="user-role">Patient</div>
+                </div>
+            </div>
+            <a href="/logout" class="btn btn-ghost" style="width:100%;justify-content:center">
+      ↩ Logout
+    </a>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <main class="main-content">
+
+        <div class="page-header">
+            <div>
+                <div class="page-title">🎫 My Active Token</div>
+                <div class="page-sub">
+                    Live tracking of your queue position
+                </div>
+            </div>
+            <a href="/dashboard" class="btn btn-ghost">
+      ← Back to Dashboard
+    </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for cat, msg in messages %}
+        <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %} {% endif %} {% endwith %} {% if active_token %}
+
+        <div class="my-token-wrap">
+
+            <!-- BIG TOKEN CARD -->
+            <div class="big-token-card">
+                <div class="btc-header">
+                    <div class="btc-hospital">
+                        🏥 Hospital Queue System
+                    </div>
+                    <div class="btc-live">
+                        <span class="pulse-dot green"></span> LIVE TRACKING
+                    </div>
+                </div>
+
+                <div class="btc-dept-icon">
+                    {% if active_token.queue.department_name == 'OPD' %}🏥 {% elif active_token.queue.department_name == 'Pharmacy' %}💊 {% elif active_token.queue.department_name == 'Laboratory' %}🧪 {% elif active_token.queue.department_name == 'Radiology' %}🩻 {% elif
+                    active_token.queue.department_name == 'Emergency' %}🚨 {% elif active_token.queue.department_name == 'Cardiology' %}❤️ {% elif active_token.queue.department_name == 'Pediatrics' %}👶 {% elif active_token.queue.department_name == 'Billing'
+                    %}💳 {% else %}🏥 {% endif %}
+                </div>
+
+                <div class="btc-dept-name">
+                    {{ active_token.queue.department_name }} Department
+                </div>
+
+                <div class="btc-token-label">YOUR TOKEN NUMBER</div>
+
+                <div class="btc-token-number">
+                    {{ active_token.token_number }}
+                </div>
+
+                <div class="btc-status-row">
+                    <span class="status-badge s-{{ active_token.status }}">
+          {{ active_token.status }}
+        </span>
+                </div>
+
+                <!-- PROGRESS RING -->
+                <div class="btc-progress-wrap">
+                    <svg class="progress-ring" width="160" height="160">
+          <circle cx="80" cy="80" r="64"
+                  fill="none"
+                  stroke="#fce7e7"
+                  stroke-width="10"/>
+          <circle cx="80" cy="80" r="64"
+                  fill="none"
+                  stroke="url(#roseGrad)"
+                  stroke-width="10"
+                  stroke-linecap="round"
+                  stroke-dasharray="402"
+                  stroke-dashoffset="200"
+                  id="progress-ring-fill"
+                  transform="rotate(-90 80 80)"
+                  style="transition:stroke-dashoffset 1s ease"/>
+          <defs>
+            <linearGradient id="roseGrad"
+                            x1="0%" y1="0%"
+                            x2="100%" y2="100%">
+              <stop offset="0%"
+                    stop-color="#e11d48"/>
+              <stop offset="100%"
+                    stop-color="#fb7185"/>
+            </linearGradient>
+          </defs>
+        </svg>
+                    <div class="btc-ring-inner">
+                        <div class="btc-ring-num" id="ring-position">
+                            {{ position }}
+                        </div>
+                        <div class="btc-ring-label">ahead</div>
+                    </div>
+                </div>
+
+                <!-- STATS -->
+                <div class="btc-stats-row">
+                    <div class="btc-stat-item">
+                        <span class="btc-stat-val" id="display-position">
+            {{ position }}
+          </span>
+                        <span class="btc-stat-label">People Ahead</span>
+                    </div>
+                    <div class="btc-stat-divider"></div>
+                    <div class="btc-stat-item">
+                        <span class="btc-stat-val" id="display-wait">
+            {{ est_wait }}
+          </span>
+                        <span class="btc-stat-label">Est. Minutes</span>
+                    </div>
+                    <div class="btc-stat-divider"></div>
+                    <div class="btc-stat-item">
+                        <span class="btc-stat-val" id="display-serving">
+            —
+          </span>
+                        <span class="btc-stat-label">Now Serving</span>
+                    </div>
+                </div>
+
+                <!-- PROGRESS BAR -->
+                <div class="btc-pb-wrap">
+                    <div class="btc-pb-label">
+                        <span>Your Queue Progress</span>
+                        <span id="pb-pct">Calculating...</span>
+                    </div>
+                    <div class="btc-pb-track">
+                        <div class="btc-pb-fill" id="pb-fill" style="width:30%">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btc-issued">
+                    🕐 Token issued at: {{ active_token.created_at.strftime( '%d %b %Y at %H:%M' ) }}
+                </div>
+
+                <!-- CANCEL BUTTON -->
+                <form method="POST" action="/cancel-token/{{ active_token.id }}" onsubmit="return confirm(
+              'Are you sure you want to cancel your token?'
+            )" style="margin-top:20px">
+                    <button type="submit" class="btn btn-danger btn-full">
+          ✕ Cancel My Token
+        </button>
+                </form>
+            </div>
+
+            <!-- SIDE PANEL -->
+            <div class="token-side-panel">
+
+                <!-- STEPS -->
+                <div class="tsp-card">
+                    <div class="tsp-title">📋 What To Do</div>
+                    <div class="tsp-steps">
+                        <div class="tsp-step">
+                            <div class="tsp-step-icon">✅</div>
+                            <div>
+                                <strong>Token Generated</strong>
+                                <span>You are in the queue</span>
+                            </div>
+                        </div>
+                        <div class="tsp-step-line"></div>
+                        <div class="tsp-step" id="step-wait">
+                            <div class="tsp-step-icon">⏳</div>
+                            <div>
+                                <strong>Wait Your Turn</strong>
+                                <span id="step-wait-text">
+                {{ position }} people ahead
+              </span>
+                            </div>
+                        </div>
+                        <div class="tsp-step-line"></div>
+                        <div class="tsp-step" id="step-proceed" style="opacity:0.4">
+                            <div class="tsp-step-icon">🚶</div>
+                            <div>
+                                <strong>Go to Counter</strong>
+                                <span>When your number is called</span>
+                            </div>
+                        </div>
+                        <div class="tsp-step-line"></div>
+                        <div class="tsp-step" style="opacity:0.4">
+                            <div class="tsp-step-icon">🏥</div>
+                            <div>
+                                <strong>Get Consultation</strong>
+                                <span>
+                {{ active_token.queue.department_name }}
+              </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LIVE STATUS -->
+                <div class="tsp-card">
+                    <div class="tsp-title">📡 Live Queue Info</div>
+                    <div class="live-status-row">
+                        <span>Now Serving</span>
+                        <strong id="ls-serving">Loading...</strong>
+                    </div>
+                    <div class="live-status-row">
+                        <span>Total Waiting</span>
+                        <strong id="ls-waiting">Loading...</strong>
+                    </div>
+                    <div class="live-status-row">
+                        <span>Your Position</span>
+                        <strong id="ls-position" style="color:var(--rose)">
+            # {{ position + 1 }}
+          </strong>
+                    </div>
+                    <div class="live-status-row">
+                        <span>Department</span>
+                        <strong>
+            {{ active_token.queue.department_name }}
+          </strong>
+                    </div>
+                    <div class="live-status-row">
+                        <span>Queue Status</span>
+                        <strong id="ls-queue-status">
+            <span class="status-badge s-active">
+              active
+            </span>
+          </strong>
+                    </div>
+                </div>
+
+                <!-- TIPS -->
+                <div class="tsp-card">
+                    <div class="tsp-title">💡 Patient Tips</div>
+                    <ul class="tsp-tips">
+                        <li>🔔 Keep this page open for live updates</li>
+                        <li>📍 Stay near {{ active_token.queue.department_name }} counter
+                        </li>
+                        <li>🆔 Keep your hospital ID ready</li>
+                        <li>📱 Updates every 10 seconds automatically</li>
+                        <li>🔊 Alert sounds when it's your turn</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
+        {% else %}
+
+        <!-- NO TOKEN -->
+        <div class="no-token-full">
+            <div class="ntf-icon">🎫</div>
+            <h2>No Active Token</h2>
+            <p>You don't have any active token right now.</p>
+            <a href="/dashboard" class="btn btn-primary btn-lg" style="margin-top:24px;display:inline-flex">
+      + Get a Token Now
+    </a>
+        </div>
+
+        {% endif %}
+
+    </main>
+
+    <!-- TICKER -->
+    <div class="ticker-bar">
+        <div class="ticker-label">LIVE</div>
+        <div class="ticker-track">
+            <div class="ticker-inner">
+                <span>🏥 Stay near your department &nbsp;&nbsp;</span>
+                <span>🔔 Page updates automatically &nbsp;&nbsp;</span>
+                <span>⏱ Average wait: 8 minutes &nbsp;&nbsp;</span>
+                <span>🏥 Stay near your department &nbsp;&nbsp;</span>
+                <span>🔔 Page updates automatically &nbsp;&nbsp;</span>
+                <span>⏱ Average wait: 8 minutes &nbsp;&nbsp;</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toasts"></div>
+
+    <style>
+        .my-token-wrap {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+        
+        .big-token-card {
+            background: #fff;
+            border: 2px solid #fecdd3;
+            border-radius: 28px;
+            padding: 36px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(225, 29, 72, 0.12);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .big-token-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient( 90deg, #e11d48, #fb7185, #e11d48);
+            background-size: 200% 100%;
+            animation: gradMove 2s linear infinite;
+        }
+        
+        @keyframes gradMove {
+            0% {
+                background-position: 0%;
+            }
+            100% {
+                background-position: 200%;
+            }
+        }
+        
+        .btc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .btc-hospital {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+        }
+        
+        .btc-live {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #059669;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 20px;
+            letter-spacing: 1px;
+        }
+        
+        .btc-dept-icon {
+            font-size: 56px;
+            margin-bottom: 8px;
+            animation: floatY 4s ease-in-out infinite;
+        }
+        
+        .btc-dept-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+        
+        .btc-token-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        
+        .btc-token-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 80px;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, #e11d48, #be123c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+            animation: tokenPulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes tokenPulse {
+            0%,
+            100% {
+                filter: drop-shadow(0 4px 12px rgba(225, 29, 72, 0.2));
+            }
+            50% {
+                filter: drop-shadow(0 4px 24px rgba(225, 29, 72, 0.5));
+            }
+        }
+        
+        .btc-status-row {
+            margin-bottom: 20px;
+        }
+        
+        .btc-progress-wrap {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 24px;
+        }
+        
+        .btc-ring-inner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .btc-ring-num {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #e11d48, #be123c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+        
+        .btc-ring-label {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btc-stats-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 24px;
+            background: #fff8f8;
+            border: 1px solid #fecdd3;
+            border-radius: 16px;
+            padding: 16px;
+        }
+        
+        .btc-stat-item {
+            text-align: center;
+        }
+        
+        .btc-stat-val {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #e11d48, #be123c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        
+        .btc-stat-label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .btc-stat-divider {
+            width: 1px;
+            height: 40px;
+            background: #fecdd3;
+        }
+        
+        .btc-pb-wrap {
+            margin-bottom: 16px;
+        }
+        
+        .btc-pb-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .btc-pb-track {
+            height: 10px;
+            background: #fce7e7;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .btc-pb-fill {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #e11d48, #fb7185);
+            transition: width 1s ease;
+            position: relative;
+        }
+        
+        .btc-pb-fill::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 2s linear infinite;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+        
+        .btc-issued {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 12px;
+            font-weight: 500;
+        }
+        
+        .token-side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .tsp-card {
+            background: #fff;
+            border: 1.5px solid var(--border);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(225, 29, 72, 0.07);
+        }
+        
+        .tsp-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 16px;
+        }
+        
+        .tsp-steps {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .tsp-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 8px 0;
+        }
+        
+        .tsp-step-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        
+        .tsp-step strong {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+        
+        .tsp-step span {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        
+        .tsp-step-line {
+            width: 2px;
+            height: 16px;
+            background: linear-gradient(180deg, #fca5a5, transparent);
+            margin: 0 9px;
+            border-radius: 2px;
+        }
+        
+        .live-status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #fff1f2;
+            font-size: 13px;
+        }
+        
+        .live-status-row:last-child {
+            border-bottom: none;
+        }
+        
+        .live-status-row span {
+            color: var(--muted);
+            font-weight: 500;
+        }
+        
+        .live-status-row strong {
+            font-weight: 700;
+            color: var(--text);
+        }
+        
+        .tsp-tips {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .tsp-tips li {
+            font-size: 13px;
+            color: var(--text2);
+            font-weight: 500;
+        }
+        
+        .no-token-full {
+            text-align: center;
+            padding: 80px 40px;
+            background: #fff;
+            border: 2px dashed #fca5a5;
+            border-radius: 28px;
+        }
+        
+        .ntf-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        
+        .no-token-full h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        
+        .no-token-full p {
+            font-size: 15px;
+            color: var(--muted);
+        }
+        
+        @media (max-width: 1024px) {
+            .my-token-wrap {
+                grid-template-columns: 1fr;
+            }
+            .btc-token-number {
+                font-size: 60px;
+            }
+        }
+    </style>
+
+    {% if active_token %}
+    <input type="hidden" id="queue-id-hidden" value="{{ active_token.queue_id }}"> {% endif %}
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <script>
+        var queueId = document.getElementById('queue-id-hidden') ?
+            document.getElementById('queue-id-hidden').value :
+            null;
+
+        var socket = io();
+
+        socket.on('next_token', function(data) {
+            showToast('📢', 'Queue Moving!',
+                'Now serving ' + data.token_number, '#e11d48');
+            updateStatus();
+        });
+
+        socket.on('queue_update', function() {
+            updateStatus();
+        });
+        socket.on('token_cancelled', function() {
+            updateStatus();
+        });
+
+        function setText(id, val) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
+
+        function updateStatus() {
+            fetch('/token-status')
+                .then(function(r) {
+                    return r.json();
+                })
+                .then(function(d) {
+
+                    if (!d.has_token) {
+                        showToast('✅', 'Done!',
+                            'Your token is complete or cancelled.', '#059669');
+                        setTimeout(function() {
+                            window.location = '/dashboard';
+                        }, 1500);
+                        return;
+                    }
+
+                    var pos = d.position;
+                    var wait = d.est_wait;
+
+                    setText('display-position', pos);
+                    setText('display-wait', wait);
+                    setText('ring-position', pos);
+                    setText('ls-position', '#' + (pos + 1));
+                    setText('ls-waiting', pos + ' waiting');
+                    setText('step-wait-text', pos + ' people ahead');
+
+                    /* Fetch queue details */
+                    if (queueId) {
+                        fetch('/queue-status/' + queueId)
+                            .then(function(r) {
+                                return r.json();
+                            })
+                            .then(function(qs) {
+                                var srv = qs.serving_token || 'None';
+                                setText('display-serving', srv);
+                                setText('ls-serving', srv);
+
+                                /* Queue status badge */
+                                var lsQS = document.getElementById(
+                                    'ls-queue-status'
+                                );
+                                if (lsQS) {
+                                    lsQS.innerHTML =
+                                        '<span class="status-badge s-' +
+                                        qs.queue.status + '">' +
+                                        qs.queue.status + '</span>';
+                                }
+
+                                /* Progress bar */
+                                var total = qs.waiting + 1;
+                                if (total < 1) total = 1;
+                                var done = total - pos;
+                                var pct = Math.round((done / total) * 100);
+                                if (pct < 5) pct = 5;
+                                if (pct > 100) pct = 100;
+
+                                var pbFill = document.getElementById('pb-fill');
+                                if (pbFill) pbFill.style.width = pct + '%';
+
+                                var pbPct = document.getElementById('pb-pct');
+                                if (pbPct) pbPct.textContent = pct + '% complete';
+
+                                /* Progress ring */
+                                var ring = document.getElementById(
+                                    'progress-ring-fill'
+                                );
+                                if (ring) {
+                                    var circumference = 402;
+                                    var offset = circumference -
+                                        (pct / 100) * circumference;
+                                    ring.setAttribute(
+                                        'stroke-dashoffset', offset
+                                    );
+                                }
+
+                                /* Show alert if next */
+                                if (pos === 0) {
+                                    var sp = document.getElementById(
+                                        'step-proceed'
+                                    );
+                                    if (sp) sp.style.opacity = '1';
+                                    showToast(
+                                        '🔔',
+                                        'Your Turn is Next!',
+                                        'Please go to the counter now!',
+                                        '#059669'
+                                    );
+                                }
+                            })
+                            .catch(function() {});
+                    }
+                })
+                .catch(function() {});
+        }
+
+        /* Initial load */
+        updateStatus();
+
+        /* Auto refresh every 10 seconds */
+        setInterval(updateStatus, 10000);
+    </script>
+</body>
+
+</html>

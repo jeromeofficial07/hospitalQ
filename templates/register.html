@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — QueueFlow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="auth-page">
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="auth-split">
+        <div class="auth-left">
+            <div class="auth-left-inner">
+                <a href="/" class="back-link">← Back to Home</a>
+                <div class="auth-brand">
+                    <div class="logo-icon">⚡</div>
+                    <div>
+                        <div class="logo-text">QueueFlow</div>
+                        <div class="logo-sub">Create Account</div>
+                    </div>
+                </div>
+                <h1 class="auth-title">Join QueueFlow</h1>
+                <p class="auth-sub">Register to generate tokens and track your queue live.</p>
+
+                {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for cat, msg in messages %}
+                <div class="flash flash-{{ cat }}">{{ msg }}</div>
+                {% endfor %} {% endif %} {% endwith %}
+
+                <form method="POST" action="/register" class="auth-form">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">👤</span>
+                            <input type="text" name="name" class="form-input" placeholder="John Doe" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">✉️</span>
+                            <input type="email" name="email" class="form-input" placeholder="you@example.com" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔒</span>
+                            <input type="password" name="password" id="pw-reg" class="form-input" placeholder="Min. 8 characters" required>
+                            <span class="input-toggle" onclick="togglePw()">👁</span>
+                        </div>
+                        <div class="pw-strength" id="pw-strength"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Account Type</label>
+                        <div class="role-tabs">
+                            <button type="button" class="role-tab active" onclick="setRole('user',this)">👤 User</button>
+                            <button type="button" class="role-tab" onclick="setRole('admin',this)">⚙️ Admin</button>
+                        </div>
+                        <input type="hidden" name="role" id="role-field" value="user">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full btn-lg">
+          Create Account →
+        </button>
+                </form>
+
+                <p class="auth-switch">
+                    Already registered? <a href="/login" class="form-link">Sign in</a>
+                </p>
+            </div>
+        </div>
+
+        <div class="auth-right">
+            <div class="auth-visual">
+                <div class="steps-visual">
+                    <div class="step-item">
+                        <div class="step-num">01</div>
+                        <div class="step-text">
+                            <strong>Register</strong>
+                            <span>Create your free account</span>
+                        </div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step-item">
+                        <div class="step-num">02</div>
+                        <div class="step-text">
+                            <strong>Select Dept</strong>
+                            <span>Pick your department</span>
+                        </div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step-item">
+                        <div class="step-num">03</div>
+                        <div class="step-text">
+                            <strong>Get Token</strong>
+                            <span>Receive your queue number</span>
+                        </div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step-item">
+                        <div class="step-num">04</div>
+                        <div class="step-text">
+                            <strong>Track Live</strong>
+                            <span>Monitor real-time updates</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        function setRole(role, btn) {
+            document.getElementById('role-field').value = role;
+            document.querySelectorAll('.role-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function togglePw() {
+            const f = document.getElementById('pw-reg');
+            f.type = f.type === 'password' ? 'text' : 'password';
+        }
+        document.getElementById('pw-reg').addEventListener('input', function() {
+            const v = this.value,
+                bar = document.getElementById('pw-strength');
+            let strength = 0,
+                label = '',
+                col = '';
+            if (v.length >= 8) strength++;
+            if (/[A-Z]/.test(v)) strength++;
+            if (/[0-9]/.test(v)) strength++;
+            if (/[^A-Za-z0-9]/.test(v)) strength++;
+            const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+            const colors = ['', '#f43f5e', '#f59e0b', '#06b6d4', '#10b981'];
+            bar.innerHTML = `<div style="height:4px;border-radius:4px;background:${colors[strength]||'transparent'};width:${strength*25}%;transition:all 0.3s;margin-top:6px"></div><span style="font-size:11px;color:${colors[strength]}">${labels[strength]||''}</span>`;
+        });
+    </script>
+</body>
+
+</html>

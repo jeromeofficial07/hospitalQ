@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — QueueFlow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="auth-page">
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="auth-split">
+        <!-- LEFT PANEL -->
+        <div class="auth-left">
+            <div class="auth-left-inner">
+                <a href="/" class="back-link">← Back to Home</a>
+                <div class="auth-brand">
+                    <div class="logo-icon">⚡</div>
+                    <div>
+                        <div class="logo-text">QueueFlow</div>
+                        <div class="logo-sub">Smart Queue System</div>
+                    </div>
+                </div>
+                <h1 class="auth-title">Welcome back</h1>
+                <p class="auth-sub">Sign in to manage your queue or access the admin panel.</p>
+
+                <!-- FLASH MESSAGES -->
+                {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for cat, msg in messages %}
+                <div class="flash flash-{{ cat }}">{{ msg }}</div>
+                {% endfor %} {% endif %} {% endwith %}
+
+                <!-- ROLE TABS -->
+                <div class="role-tabs">
+                    <button class="role-tab active" onclick="setRole('user', this)">👤 User</button>
+                    <button class="role-tab" onclick="setRole('admin', this)">⚙️ Admin</button>
+                </div>
+
+                <form method="POST" action="/login" class="auth-form" id="login-form">
+                    <input type="hidden" name="role" id="role-field" value="user">
+
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">✉️</span>
+                            <input type="email" name="email" class="form-input" placeholder="you@example.com" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔒</span>
+                            <input type="password" name="password" id="pw-input" class="form-input" placeholder="••••••••" required>
+                            <span class="input-toggle" onclick="togglePw()">👁</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label class="check-label">
+            <input type="checkbox"> Remember me
+          </label>
+                        <a href="#" class="form-link">Forgot password?</a>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full btn-lg">
+          Sign In →
+        </button>
+                </form>
+
+                <p class="auth-switch">
+                    Don't have an account? <a href="/register" class="form-link">Register free</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="auth-right">
+            <div class="auth-visual">
+                <div class="av-card av-main floating">
+                    <div class="av-tag">🎫 YOUR TOKEN</div>
+                    <div class="av-number">B-042</div>
+                    <div class="av-dept">Banking Department</div>
+                    <div class="av-wait">Est. Wait: <strong>8 minutes</strong></div>
+                </div>
+                <div class="av-card av-mini avm1">
+                    <span>🟢</span> Queue Active
+                </div>
+                <div class="av-card av-mini avm2">
+                    <span>🔔</span> 3 ahead of you
+                </div>
+                <div class="auth-quote">
+                    "Skip the line. Track in real-time."
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        function setRole(role, btn) {
+            document.getElementById('role-field').value = role;
+            document.querySelectorAll('.role-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function togglePw() {
+            const f = document.getElementById('pw-input');
+            f.type = f.type === 'password' ? 'text' : 'password';
+        }
+    </script>
+</body>
+
+</html>

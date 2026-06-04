@@ -36,16 +36,15 @@ git clone [https://github.com/jeromeofficial07/hospitalQ.git](https://github.com
 cd hospitalQ 
 ```
 
-python -m venv venv
+python` -m venv venv
 # On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
+```bash venv\Scripts\activate```bash
 
 pip install -r requirements.txt
 
-Bash
+```bash
 python app.py
+```
 The application will be available locally at http://127.0.0.1:5000
 
 🌐 Deployment

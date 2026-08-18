@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login — QueueFlow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="auth-page">
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="auth-split">
+        <!-- LEFT PANEL -->
+        <div class="auth-left">
+            <div class="auth-left-inner">
+                <a href="/" class="back-link">← Back to Home</a>
+                <div class="auth-brand">
+                    <div class="logo-icon">⚙️</div>
+                    <div>
+                        <div class="logo-text">QueueFlow</div>
+                        <div class="logo-sub">Admin Portal</div>
+                    </div>
+                </div>
+                <h1 class="auth-title">Admin sign in</h1>
+                <p class="auth-sub">Manage departments, queues, and live tokens.</p>
+
+                <!-- FLASH MESSAGES -->
+                {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for cat, msg in messages %}
+                <div class="flash flash-{{ cat }}">{{ msg }}</div>
+                {% endfor %} {% endif %} {% endwith %}
+
+                <form method="POST" action="/admin/login" class="auth-form" id="admin-login-form">
+
+                    <div class="form-group">
+                        <label class="form-label">Admin Email</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">✉️</span>
+                            <input type="email" name="email" class="form-input" placeholder="admin@hospital.com" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔒</span>
+                            <input type="password" name="password" id="pw-input" class="form-input" placeholder="••••••••" required>
+                            <span class="input-toggle" onclick="togglePw()">👁</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full btn-lg">
+          Sign In to Admin Portal →
+        </button>
+                </form>
+
+                <p class="auth-switch">
+                    <a href="/forgot-password" class="form-link">Forgot password?</a>
+                </p>
+
+                <p class="auth-switch">
+                    Not an admin? <a href="/login" class="form-link">User login →</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="auth-right">
+            <div class="auth-visual">
+                <div class="av-card av-main floating">
+                    <div class="av-tag">⚙️ ADMIN CONTROL</div>
+                    <div class="av-number">12</div>
+                    <div class="av-dept">Tokens waiting</div>
+                    <div class="av-wait">Departments live: <strong>4</strong></div>
+                </div>
+                <div class="av-card av-mini avm1">
+                    <span>📊</span> Real-time analytics
+                </div>
+                <div class="av-card av-mini avm2">
+                    <span>🔔</span> Queue controls
+                </div>
+                <div class="auth-quote">
+                    "Run every department from one screen."
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        function togglePw() {
+            const f = document.getElementById('pw-input');
+            f.type = f.type === 'password' ? 'text' : 'password';
+        }
+    </script>
+</body>
+
+</html>

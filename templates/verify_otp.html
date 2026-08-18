@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Code — QueueFlow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="auth-page">
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="auth-split">
+        <!-- LEFT PANEL -->
+        <div class="auth-left">
+            <div class="auth-left-inner">
+                <a href="/forgot-password" class="back-link">← Start Over</a>
+                <div class="auth-brand">
+                    <div class="logo-icon">🔐</div>
+                    <div>
+                        <div class="logo-text">QueueFlow</div>
+                        <div class="logo-sub">Verify & Reset</div>
+                    </div>
+                </div>
+                <h1 class="auth-title">Enter your code</h1>
+                <p class="auth-sub">
+                    Check your email (or SMS) for a 6-digit code, then set
+                    a new password below. The code expires in 10 minutes.
+                </p>
+
+                {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for cat, msg in messages %}
+                <div class="flash flash-{{ cat }}">{{ msg }}</div>
+                {% endfor %} {% endif %} {% endwith %}
+
+                <form method="POST" action="/verify-otp" class="auth-form">
+
+                    <div class="form-group">
+                        <label class="form-label">Verification Code</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔢</span>
+                            <input type="text" name="otp" class="form-input" placeholder="123456" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required autofocus style="letter-spacing:6px;font-weight:600">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔒</span>
+                            <input type="password" name="password" id="pw-new" class="form-input" placeholder="Min. 8 characters" required>
+                            <span class="input-toggle" onclick="togglePw('pw-new')">👁</span>
+                        </div>
+                        <div class="pw-strength" id="pw-strength"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Confirm New Password</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔒</span>
+                            <input type="password" name="confirm_password" id="pw-confirm" class="form-input" placeholder="Re-enter password" required>
+                            <span class="input-toggle" onclick="togglePw('pw-confirm')">👁</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full btn-lg">
+          Reset Password →
+        </button>
+                </form>
+
+                <p class="auth-switch">
+                    Didn't get a code? <a href="/forgot-password" class="form-link">Request a new one</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="auth-right">
+            <div class="auth-visual">
+                <div class="steps-visual">
+                    <div class="step-item">
+                        <div class="step-num">01</div>
+                        <div class="step-text">
+                            <strong>Request</strong>
+                            <span>Enter your email or mobile</span>
+                        </div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step-item">
+                        <div class="step-num">02</div>
+                        <div class="step-text">
+                            <strong>Verify</strong>
+                            <span>Enter the 6-digit code</span>
+                        </div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step-item">
+                        <div class="step-num">03</div>
+                        <div class="step-text">
+                            <strong>Reset</strong>
+                            <span>Choose a new password</span>
+                        </div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step-item">
+                        <div class="step-num">04</div>
+                        <div class="step-text">
+                            <strong>Sign In</strong>
+                            <span>Use your new password</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        function togglePw(id) {
+            const f = document.getElementById(id);
+            f.type = f.type === 'password' ? 'text' : 'password';
+        }
+        document.getElementById('pw-new').addEventListener('input', function() {
+            const v = this.value,
+                bar = document.getElementById('pw-strength');
+            let strength = 0;
+            if (v.length >= 8) strength++;
+            if (/[A-Z]/.test(v)) strength++;
+            if (/[0-9]/.test(v)) strength++;
+            if (/[^A-Za-z0-9]/.test(v)) strength++;
+            const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+            const colors = ['', '#f43f5e', '#f59e0b', '#06b6d4', '#10b981'];
+            bar.innerHTML = `<div style="height:4px;border-radius:4px;background:${colors[strength]||'transparent'};width:${strength*25}%;transition:all 0.3s;margin-top:6px"></div><span style="font-size:11px;color:${colors[strength]}">${labels[strength]||''}</span>`;
+        });
+    </script>
+</body>
+
+</html>

@@ -75,8 +75,25 @@ def create_app():
         }
         return icons.get(name, '🏥')
 
-    # Create all tables and default data automatically
+    # Create all tables and default data automatically.
+    #
+    # IMPORTANT: db.create_all() only creates tables for models that
+    # Python has already imported by this point — it inspects
+    # SQLAlchemy's metadata, which only knows about a model once its
+    # class definition has executed somewhere. Relying on blueprint
+    # imports above to have pulled in every model as a side effect is
+    # fragile (this broke exactly that way: Hospital was only ever
+    # imported inside insert_default_data(), which runs AFTER this
+    # call, so on a brand-new database the hospitals table silently
+    # never got created). Import every model explicitly here so this
+    # doesn't depend on import order elsewhere in the app.
     with app.app_context():
+        from models.hospital_model import Hospital   # noqa: F401
+        from models.user_model     import User        # noqa: F401
+        from models.queue_model    import Queue        # noqa: F401
+        from models.token_model    import Token        # noqa: F401
+        from models.otp_model      import PasswordResetOTP  # noqa: F401
+
         db.create_all()
         insert_default_data()
 

@@ -1,5 +1,20 @@
 # app.py
 import os
+
+# CRITICAL: this must run before Flask, SQLAlchemy, or anything else
+# is imported. eventlet works by replacing Python's threading/socket
+# internals with cooperative ("green") versions — but only for code
+# that gets imported AFTER this call. If SQLAlchemy's connection pool
+# gets imported first (using the real threading.Lock) and eventlet
+# patches things afterward, they end up incompatible with each other
+# and every DB query eventually fails with:
+#   RuntimeError: cannot notify on un-acquired lock
+# Only patch when actually running under eventlet — this must stay a
+# no-op locally on Windows, where you run with ASYNC_MODE=threading.
+if os.environ.get('ASYNC_MODE', 'threading') == 'eventlet':
+    import eventlet
+    eventlet.monkey_patch()
+
 from flask import Flask
 from flask_socketio import SocketIO
 from sqlalchemy import event
